@@ -1,0 +1,46 @@
+# CircuitPython specific
+settings.toml
+secrets.py
+boot_out.txt
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# System Volume Information (Windows drive metadata)
+System Volume Information/
+.fseventsd/
+.Trash-1000
+.Trashes
+.metadata_never_index
+
+# Test files (optional - uncomment if you don't want to commit tests)
+# test_*.py
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.old
