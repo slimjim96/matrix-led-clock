@@ -16,6 +16,7 @@ Recommended stable settings:
 - `ENABLE_WEATHER_OVERLAY = False`
 - `ENABLE_AUTO_BRIGHTNESS = False`
 - `FIXED_BRIGHTNESS = 0.30`
+- `COLOR_SCALE = 0.50`
 - `ENABLE_STARTUP_SCREEN = False`
 - `USE_SINGLE_WEATHER_STATUS_ICON = True`
 - `USE_SINGLE_OUTDOOR_ICON = True`
@@ -25,6 +26,9 @@ HUB75 display.
 
 If the matrix is too bright, lower `FIXED_BRIGHTNESS` in `code.py`.
 Typical useful values are between `0.20` and `0.40`.
+
+If the colors themselves feel too intense, lower `COLOR_SCALE`.
+`0.50` cuts the RGB palette roughly in half without changing the color choices.
 
 ## Important Hardware Note
 

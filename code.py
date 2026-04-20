@@ -27,6 +27,7 @@ DHT_INIT_PER_READ      = True   # Create/release DHT object per read to reduce p
 FAST_POLLING_MODE      = False  # Use short test intervals instead of production-safe polling
 INDOOR_SENSOR_MODE     = "off"  # "off", "boot_only", or "periodic"
 FIXED_BRIGHTNESS       = 0.05   # Used when auto-brightness is disabled (0.0 to 1.0)
+COLOR_SCALE            = 0.10   # Multiply all UI RGB colors by this factor
 
 # Render strategy flags: keep these lightweight by default on HUB75 panels.
 USE_SINGLE_WEATHER_STATUS_ICON = True   # Keep only one top-right weather icon mounted
@@ -95,15 +96,22 @@ print(f"Timezone: {timezone_name}")
 MATRIX  = Matrix(bit_depth=6)
 DISPLAY = MATRIX.display
 
+def scale_color(color, factor=COLOR_SCALE):
+    """Scale a 24-bit RGB color without changing the overall palette choices."""
+    red = int(((color >> 16) & 0xFF) * factor)
+    green = int(((color >> 8) & 0xFF) * factor)
+    blue = int((color & 0xFF) * factor)
+    return (red << 16) | (green << 8) | blue
+
 # Startup screen shown during boot so the matrix can be used for troubleshooting
 # without a serial connection. Uses terminalio.FONT (always available).
 _startup_group = displayio.Group()
 _s_title  = adafruit_display_text.label.Label(
-    terminalio.FONT, color=0x005555, text="Wx Clock", x=10, y=6)
+    terminalio.FONT, color=scale_color(0x005555), text="Wx Clock", x=10, y=6)
 _s_status = adafruit_display_text.label.Label(
-    terminalio.FONT, color=0x009999, text="Starting...", x=2, y=17)
+    terminalio.FONT, color=scale_color(0x009999), text="Starting...", x=2, y=17)
 _s_detail = adafruit_display_text.label.Label(
-    terminalio.FONT, color=0x005555, text="          ", x=2, y=27)
+    terminalio.FONT, color=scale_color(0x005555), text="          ", x=2, y=27)
 _startup_group.append(_s_title)
 _startup_group.append(_s_status)
 _startup_group.append(_s_detail)
@@ -322,7 +330,7 @@ def create_icon_bitmaps():
     sun_bitmap = displayio.Bitmap(6, 8, 2)
     sun_palette = displayio.Palette(2)
     sun_palette[0] = 0x000000
-    sun_palette[1] = 0xBB8800
+    sun_palette[1] = scale_color(0xBB8800)
     sun_pattern = [
         0b001000,
         0b101010,
@@ -341,7 +349,7 @@ def create_icon_bitmaps():
     snow_bitmap = displayio.Bitmap(6, 8, 2)
     snow_palette = displayio.Palette(2)
     snow_palette[0] = 0x000000
-    snow_palette[1] = 0x4466AA
+    snow_palette[1] = scale_color(0x4466AA)
     snow_pattern = [
         0b001000,
         0b111110,
@@ -360,7 +368,7 @@ def create_icon_bitmaps():
     house_bitmap = displayio.Bitmap(6, 8, 2)
     house_palette = displayio.Palette(2)
     house_palette[0] = 0x000000
-    house_palette[1] = 0x884433
+    house_palette[1] = scale_color(0x884433)
     house_pattern = [
         0b001000,
         0b011100,
@@ -379,7 +387,7 @@ def create_icon_bitmaps():
     drop_bitmap = displayio.Bitmap(6, 8, 2)
     drop_palette = displayio.Palette(2)
     drop_palette[0] = 0x000000
-    drop_palette[1] = 0x336688
+    drop_palette[1] = scale_color(0x336688)
     drop_pattern = [
         0b001000,
         0b011100,
@@ -400,8 +408,8 @@ def create_icon_bitmaps():
     clear_bitmap = displayio.Bitmap(15, 10, 3)
     clear_palette = displayio.Palette(3)
     clear_palette[0] = 0x000000
-    clear_palette[1] = 0xCC9900
-    clear_palette[2] = 0x996600
+    clear_palette[1] = scale_color(0xCC9900)
+    clear_palette[2] = scale_color(0x996600)
     clear_pattern = [
         [0,0,0,0,1,0,0,0,1,0,0,0,0,0,0],
         [0,0,0,2,0,0,0,0,0,2,0,0,0,0,0],
@@ -421,8 +429,8 @@ def create_icon_bitmaps():
     cloud_bitmap = displayio.Bitmap(15, 10, 3)
     cloud_palette = displayio.Palette(3)
     cloud_palette[0] = 0x000000
-    cloud_palette[1] = 0x7799AA
-    cloud_palette[2] = 0x556677
+    cloud_palette[1] = scale_color(0x7799AA)
+    cloud_palette[2] = scale_color(0x556677)
     cloud_pattern = [
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         [0,0,0,1,1,1,0,0,0,0,0,0,0,0,0],
@@ -442,8 +450,8 @@ def create_icon_bitmaps():
     rain_bitmap = displayio.Bitmap(15, 10, 3)
     rain_palette = displayio.Palette(3)
     rain_palette[0] = 0x000000
-    rain_palette[1] = 0x445566
-    rain_palette[2] = 0x335577
+    rain_palette[1] = scale_color(0x445566)
+    rain_palette[2] = scale_color(0x335577)
     rain_pattern = [
         [0,0,0,1,1,1,0,0,0,0,0,0,0,0,0],
         [0,0,1,1,1,1,1,1,0,0,0,0,0,0,0],
@@ -463,8 +471,8 @@ def create_icon_bitmaps():
     snow_status_bitmap = displayio.Bitmap(15, 10, 3)
     snow_status_palette = displayio.Palette(3)
     snow_status_palette[0] = 0x000000
-    snow_status_palette[1] = 0x667788
-    snow_status_palette[2] = 0xAABBCC
+    snow_status_palette[1] = scale_color(0x667788)
+    snow_status_palette[2] = scale_color(0xAABBCC)
     snow_status_pattern = [
         [0,0,0,1,1,1,0,0,0,0,0,0,0,0,0],
         [0,0,1,1,1,1,1,1,0,0,0,0,0,0,0],
@@ -484,8 +492,8 @@ def create_icon_bitmaps():
     thunder_bitmap = displayio.Bitmap(15, 10, 3)
     thunder_palette = displayio.Palette(3)
     thunder_palette[0] = 0x000000
-    thunder_palette[1] = 0x404040
-    thunder_palette[2] = 0xBBBB00
+    thunder_palette[1] = scale_color(0x404040)
+    thunder_palette[2] = scale_color(0xBBBB00)
     thunder_pattern = [
         [0,0,0,1,1,1,0,0,0,0,0,0,0,0,0],
         [0,0,1,1,1,1,1,1,0,0,0,0,0,0,0],
@@ -505,8 +513,8 @@ def create_icon_bitmaps():
     fog_bitmap = displayio.Bitmap(15, 10, 3)
     fog_palette = displayio.Palette(3)
     fog_palette[0] = 0x000000
-    fog_palette[1] = 0x666666
-    fog_palette[2] = 0x444444
+    fog_palette[1] = scale_color(0x666666)
+    fog_palette[2] = scale_color(0x444444)
     fog_pattern = [
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         [0,1,1,1,1,1,1,1,1,0,0,0,0,0,0],
@@ -534,12 +542,12 @@ main_group = displayio.Group()
 
 # Time -- top left
 time_label = adafruit_display_text.label.Label(
-    LARGE_FONT, color=0xCC8800, text='--:--', x=2, y=7)
+    LARGE_FONT, color=scale_color(0xCC8800), text='--:--', x=2, y=7)
 main_group.append(time_label)
 
 # AM/PM -- top middle
 ampm_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x886633, text='--', x=34, y=7)
+    SMALL_FONT, color=scale_color(0x886633), text='--', x=34, y=7)
 main_group.append(ampm_label)
 
 # Weather status icons -- top right (15x10)
@@ -569,7 +577,7 @@ else:
 
 # Date -- middle left
 date_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x887755, text='--/--', x=2, y=16)
+    SMALL_FONT, color=scale_color(0x887755), text='--/--', x=2, y=16)
 main_group.append(date_label)
 
 # Outdoor icon (sun/snow) + temperature -- middle right
@@ -585,7 +593,7 @@ else:
     main_group[outdoor_icon_snow_index].hidden = True
 
 outdoor_temp_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x997755, text=' --°', x=40, y=16)
+    SMALL_FONT, color=scale_color(0x997755), text=' --°', x=40, y=16)
 main_group.append(outdoor_temp_label)
 
 # Indoor temp + humidity -- bottom row
@@ -593,25 +601,25 @@ house_tilegrid = displayio.TileGrid(house_icon[0], pixel_shader=house_icon[1], x
 main_group.append(house_tilegrid)
 
 indoor_temp_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x996644, text=' --°', x=9, y=26)
+    SMALL_FONT, color=scale_color(0x996644), text=' --°', x=9, y=26)
 main_group.append(indoor_temp_label)
 
 drop_tilegrid = displayio.TileGrid(drop_icon[0], pixel_shader=drop_icon[1], x=34, y=23)
 main_group.append(drop_tilegrid)
 
 indoor_humid_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x337788, text=' --%', x=40, y=26)
+    SMALL_FONT, color=scale_color(0x337788), text=' --%', x=40, y=26)
 main_group.append(indoor_humid_label)
 
 # Weather overlay group -- switching DISPLAY.root_group atomically eliminates
 # the per-element hide/show loops that caused flicker on HUB75 panels.
 weather_overlay_group = displayio.Group()
 weather_condition_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x998866, text='', x=2, y=5)
+    SMALL_FONT, color=scale_color(0x998866), text='', x=2, y=5)
 weather_current_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x997755, text='', x=2, y=16)
+    SMALL_FONT, color=scale_color(0x997755), text='', x=2, y=16)
 weather_tomorrow_label = adafruit_display_text.label.Label(
-    SMALL_FONT, color=0x557766, text='', x=2, y=26)
+    SMALL_FONT, color=scale_color(0x557766), text='', x=2, y=26)
 weather_overlay_group.append(weather_condition_label)
 weather_overlay_group.append(weather_current_label)
 weather_overlay_group.append(weather_tomorrow_label)
@@ -704,15 +712,15 @@ def format_humidity_text(humidity):
     return "{:>3.0f}%".format(humidity)
 
 def get_temp_color(temp):
-    if temp is None:    return 0x555555
-    elif temp <= 20:    return 0x2244AA
-    elif temp <= 32:    return 0x3366CC
-    elif temp <= 40:    return 0x4488AA
-    elif temp <= 55:    return 0x448866
-    elif temp <= 70:    return 0x997722
-    elif temp <= 80:    return 0xAA6622
-    elif temp <= 90:    return 0xAA3322
-    return 0x881111
+    if temp is None:    return scale_color(0x555555)
+    elif temp <= 20:    return scale_color(0x2244AA)
+    elif temp <= 32:    return scale_color(0x3366CC)
+    elif temp <= 40:    return scale_color(0x4488AA)
+    elif temp <= 55:    return scale_color(0x448866)
+    elif temp <= 70:    return scale_color(0x997722)
+    elif temp <= 80:    return scale_color(0xAA6622)
+    elif temp <= 90:    return scale_color(0xAA3322)
+    return scale_color(0x881111)
 
 def get_weather_status_tilegrid(condition):
     condition = condition.lower()
