@@ -21,12 +21,12 @@ ENABLE_OUTDOOR_WEATHER = True   # Fetch outdoor temp/conditions from Open-Meteo
 ENABLE_TIME_SYNC       = True   # Sync RTC from HTTP Date header (requires WiFi)
 ENABLE_INDOOR_SENSOR   = False  # Read indoor temp/humidity from DHT11 on A1
 ENABLE_WEATHER_OVERLAY = False   # Show periodic weather detail overlay screen
-ENABLE_AUTO_BRIGHTNESS = False   # Dim display automatically at night
+ENABLE_AUTO_BRIGHTNESS = False   # RGBMatrix brightness is effectively off/on; use COLOR_SCALE for visible dimming
 ENABLE_STARTUP_SCREEN  = False   # Show boot status screen before handing off to the clock
 DHT_INIT_PER_READ      = True   # Create/release DHT object per read to reduce panel timing conflicts
 FAST_POLLING_MODE      = False  # Use short test intervals instead of production-safe polling
 INDOOR_SENSOR_MODE     = "off"  # "off", "boot_only", or "periodic"
-FIXED_BRIGHTNESS       = 0.05   # Used when auto-brightness is disabled (0.0 to 1.0)
+FIXED_BRIGHTNESS       = 1.00   # For RGBMatrix, 0.0 is off and any value above 0.0 is effectively full on
 COLOR_SCALE            = 0.10   # Multiply all UI RGB colors by this factor
 
 # Render strategy flags: keep these lightweight by default on HUB75 panels.
@@ -675,6 +675,8 @@ def set_label_text(label, text):
 def set_display_brightness(brightness):
     global active_brightness
     brightness = max(0.0, min(1.0, brightness))
+    # rgbmatrix currently treats any nonzero brightness as fully on.
+    # Keep this hook for compatibility, but use COLOR_SCALE for actual dimming.
     if active_brightness is None or abs(active_brightness - brightness) > 0.01:
         DISPLAY.brightness = brightness
         active_brightness  = brightness

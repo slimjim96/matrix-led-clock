@@ -15,8 +15,8 @@ Recommended stable settings:
 - `INDOOR_SENSOR_MODE = "off"`
 - `ENABLE_WEATHER_OVERLAY = False`
 - `ENABLE_AUTO_BRIGHTNESS = False`
-- `FIXED_BRIGHTNESS = 0.30`
-- `COLOR_SCALE = 0.50`
+- `FIXED_BRIGHTNESS = 1.00`
+- `COLOR_SCALE = 0.10`
 - `ENABLE_STARTUP_SCREEN = False`
 - `USE_SINGLE_WEATHER_STATUS_ICON = True`
 - `USE_SINGLE_OUTDOOR_ICON = True`
@@ -24,11 +24,13 @@ Recommended stable settings:
 These settings are the best-known non-flickery baseline for this Matrix Portal +
 HUB75 display.
 
-If the matrix is too bright, lower `FIXED_BRIGHTNESS` in `code.py`.
-Typical useful values are between `0.20` and `0.40`.
+On this RGBMatrix backend, `FIXED_BRIGHTNESS` is not a useful dimming control.
+Per the CircuitPython `rgbmatrix` docs, `0.0` turns the panel off and any value
+above `0.0` is effectively full on.
 
-If the colors themselves feel too intense, lower `COLOR_SCALE`.
-`0.50` cuts the RGB palette roughly in half without changing the color choices.
+If the matrix is too bright, lower `COLOR_SCALE` instead.
+That scales the actual RGB values, which is the dimming control that works
+reliably on this hardware.
 
 ## Important Hardware Note
 
