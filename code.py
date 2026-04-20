@@ -91,7 +91,7 @@ print(f"Location: {latitude}, {longitude}")
 print(f"Timezone: {timezone_name}")
 
 # -- DISPLAY INIT ------------------------------------------------------------
-MATRIX  = Matrix(bit_depth=6)
+MATRIX  = Matrix(bit_depth=2)
 DISPLAY = MATRIX.display
 
 # Startup screen shown during boot so the matrix can be used for troubleshooting
