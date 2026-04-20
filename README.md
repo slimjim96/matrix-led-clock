@@ -32,6 +32,14 @@ If the matrix is too bright, lower `COLOR_SCALE` instead.
 That scales the actual RGB values, which is the dimming control that works
 reliably on this hardware.
 
+If you enable `ENABLE_AUTO_BRIGHTNESS`, the clock now auto-dims by changing
+`COLOR_SCALE` over the day instead of writing `DISPLAY.brightness`.
+The tunables are:
+
+- `AUTO_COLOR_SCALE_DAY_FACTOR`
+- `AUTO_COLOR_SCALE_DUSK_FACTOR`
+- `AUTO_COLOR_SCALE_NIGHT_FACTOR`
+
 ## Important Hardware Note
 
 The DHT11 indoor sensor is the main known flicker source.

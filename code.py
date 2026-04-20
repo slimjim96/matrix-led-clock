@@ -21,13 +21,16 @@ ENABLE_OUTDOOR_WEATHER = True   # Fetch outdoor temp/conditions from Open-Meteo
 ENABLE_TIME_SYNC       = True   # Sync RTC from HTTP Date header (requires WiFi)
 ENABLE_INDOOR_SENSOR   = False  # Read indoor temp/humidity from DHT11 on A1
 ENABLE_WEATHER_OVERLAY = False   # Show periodic weather detail overlay screen
-ENABLE_AUTO_BRIGHTNESS = False   # RGBMatrix brightness is effectively off/on; use COLOR_SCALE for visible dimming
+ENABLE_AUTO_BRIGHTNESS = False   # Auto-dim by changing COLOR_SCALE based on time of day
 ENABLE_STARTUP_SCREEN  = False   # Show boot status screen before handing off to the clock
 DHT_INIT_PER_READ      = True   # Create/release DHT object per read to reduce panel timing conflicts
 FAST_POLLING_MODE      = False  # Use short test intervals instead of production-safe polling
 INDOOR_SENSOR_MODE     = "off"  # "off", "boot_only", or "periodic"
 FIXED_BRIGHTNESS       = 1.00   # For RGBMatrix, 0.0 is off and any value above 0.0 is effectively full on
-COLOR_SCALE            = 0.10   # Multiply all UI RGB colors by this factor
+COLOR_SCALE            = 0.09   # Multiply all UI RGB colors by this factor
+AUTO_COLOR_SCALE_DAY_FACTOR     = 1.00  # Daytime multiplier applied to COLOR_SCALE
+AUTO_COLOR_SCALE_DUSK_FACTOR    = 0.60  # Dawn/dusk multiplier applied to COLOR_SCALE
+AUTO_COLOR_SCALE_NIGHT_FACTOR   = 0.30  # Night multiplier applied to COLOR_SCALE
 
 # Render strategy flags: keep these lightweight by default on HUB75 panels.
 USE_SINGLE_WEATHER_STATUS_ICON = True   # Keep only one top-right weather icon mounted
@@ -96,11 +99,94 @@ print(f"Timezone: {timezone_name}")
 MATRIX  = Matrix(bit_depth=6)
 DISPLAY = MATRIX.display
 
+def _rgb_to_hsv(red, green, blue):
+    red /= 255.0
+    green /= 255.0
+    blue /= 255.0
+
+    maximum = max(red, green, blue)
+    minimum = min(red, green, blue)
+    delta = maximum - minimum
+
+    value = maximum
+    if delta == 0:
+        return 0.0, 0.0, value
+
+    saturation = 0.0 if maximum == 0 else delta / maximum
+
+    if maximum == red:
+        hue = ((green - blue) / delta) % 6.0
+    elif maximum == green:
+        hue = ((blue - red) / delta) + 2.0
+    else:
+        hue = ((red - green) / delta) + 4.0
+
+    return hue / 6.0, saturation, value
+
+def _hsv_to_rgb(hue, saturation, value):
+    hue = hue % 1.0
+    saturation = max(0.0, min(1.0, saturation))
+    value = max(0.0, min(1.0, value))
+
+    if saturation == 0.0:
+        channel = int(value * 255 + 0.5)
+        return channel, channel, channel
+
+    scaled = hue * 6.0
+    sector = int(scaled)
+    fraction = scaled - sector
+
+    p_val = value * (1.0 - saturation)
+    q_val = value * (1.0 - saturation * fraction)
+    t_val = value * (1.0 - saturation * (1.0 - fraction))
+
+    if sector == 0:
+        red, green, blue = value, t_val, p_val
+    elif sector == 1:
+        red, green, blue = q_val, value, p_val
+    elif sector == 2:
+        red, green, blue = p_val, value, t_val
+    elif sector == 3:
+        red, green, blue = p_val, q_val, value
+    elif sector == 4:
+        red, green, blue = t_val, p_val, value
+    else:
+        red, green, blue = value, p_val, q_val
+
+    return (
+        int(red * 255 + 0.5),
+        int(green * 255 + 0.5),
+        int(blue * 255 + 0.5),
+    )
+
 def scale_color(color, factor=COLOR_SCALE):
-    """Scale a 24-bit RGB color without changing the overall palette choices."""
-    red = int(((color >> 16) & 0xFF) * factor)
-    green = int(((color >> 8) & 0xFF) * factor)
-    blue = int((color & 0xFF) * factor)
+    """Dim a 24-bit RGB color by scaling HSV value while preserving hue."""
+    factor = max(0.0, min(1.0, factor))
+    if factor <= 0.0:
+        return 0x000000
+    if factor >= 1.0:
+        return color
+    if color == 0x000000:
+        return 0x000000
+
+    original_red = (color >> 16) & 0xFF
+    original_green = (color >> 8) & 0xFF
+    original_blue = color & 0xFF
+    hue, saturation, value = _rgb_to_hsv(original_red, original_green, original_blue)
+
+    # Keep a faint visible floor for any non-black source color when factor > 0.
+    scaled_value = max(value * factor, 1.0 / 255.0)
+    red, green, blue = _hsv_to_rgb(hue, saturation, scaled_value)
+
+    if red == 0 and green == 0 and blue == 0:
+        dominant = max(original_red, original_green, original_blue)
+        if dominant == original_red:
+            red = 1
+        elif dominant == original_green:
+            green = 1
+        else:
+            blue = 1
+
     return (red << 16) | (green << 8) | blue
 
 # Startup screen shown during boot so the matrix can be used for troubleshooting
@@ -137,6 +223,7 @@ bad = 0
 indoor_temp          = 100 if DEBUG_MODE else None
 indoor_humidity      = 100 if DEBUG_MODE else None
 active_brightness    = None
+active_color_scale   = COLOR_SCALE
 sensor_read_interval = TEMP_HUMIDITY_UPDATE_INTERVAL
 last_main_display_state = None
 
@@ -672,6 +759,14 @@ def set_label_text(label, text):
     if label.text != text:
         label.text = text
 
+def set_label_color(label, color):
+    if label.color != color:
+        label.color = color
+
+def set_palette_color(palette, index, color):
+    if palette[index] != color:
+        palette[index] = color
+
 def set_display_brightness(brightness):
     global active_brightness
     brightness = max(0.0, min(1.0, brightness))
@@ -681,12 +776,56 @@ def set_display_brightness(brightness):
         DISPLAY.brightness = brightness
         active_brightness  = brightness
 
-def get_target_brightness(hour_24):
+def get_target_color_scale(hour_24):
     if 7 <= hour_24 < 21:
-        return 1.0
+        return COLOR_SCALE * AUTO_COLOR_SCALE_DAY_FACTOR
     if 21 <= hour_24 or hour_24 < 6:
-        return 0.35
-    return 0.65
+        return COLOR_SCALE * AUTO_COLOR_SCALE_NIGHT_FACTOR
+    return COLOR_SCALE * AUTO_COLOR_SCALE_DUSK_FACTOR
+
+def apply_color_theme(color_scale, force=False):
+    """Apply the current palette scale to all labels and icon palettes."""
+    global active_color_scale, last_main_display_state
+
+    color_scale = max(0.0, min(1.0, color_scale))
+    if not force and abs(active_color_scale - color_scale) <= 0.01:
+        return False
+
+    active_color_scale = color_scale
+
+    set_label_color(_s_title, scale_color(0x005555, active_color_scale))
+    set_label_color(_s_status, scale_color(0x009999, active_color_scale))
+    set_label_color(_s_detail, scale_color(0x005555, active_color_scale))
+
+    set_palette_color(sun_icon[1], 1, scale_color(0xBB8800, active_color_scale))
+    set_palette_color(snow_icon[1], 1, scale_color(0x4466AA, active_color_scale))
+    set_palette_color(house_icon[1], 1, scale_color(0x884433, active_color_scale))
+    set_palette_color(drop_icon[1], 1, scale_color(0x336688, active_color_scale))
+
+    set_palette_color(clear_icon[1], 1, scale_color(0xCC9900, active_color_scale))
+    set_palette_color(clear_icon[1], 2, scale_color(0x996600, active_color_scale))
+    set_palette_color(cloud_icon[1], 1, scale_color(0x7799AA, active_color_scale))
+    set_palette_color(cloud_icon[1], 2, scale_color(0x556677, active_color_scale))
+    set_palette_color(rain_icon[1], 1, scale_color(0x445566, active_color_scale))
+    set_palette_color(rain_icon[1], 2, scale_color(0x335577, active_color_scale))
+    set_palette_color(snow_status_icon[1], 1, scale_color(0x667788, active_color_scale))
+    set_palette_color(snow_status_icon[1], 2, scale_color(0xAABBCC, active_color_scale))
+    set_palette_color(thunder_icon[1], 1, scale_color(0x404040, active_color_scale))
+    set_palette_color(thunder_icon[1], 2, scale_color(0xBBBB00, active_color_scale))
+    set_palette_color(fog_icon[1], 1, scale_color(0x666666, active_color_scale))
+    set_palette_color(fog_icon[1], 2, scale_color(0x444444, active_color_scale))
+
+    set_label_color(time_label, scale_color(0xCC8800, active_color_scale))
+    set_label_color(ampm_label, scale_color(0x886633, active_color_scale))
+    set_label_color(date_label, scale_color(0x887755, active_color_scale))
+    set_label_color(indoor_temp_label, scale_color(0x996644, active_color_scale))
+    set_label_color(indoor_humid_label, scale_color(0x337788, active_color_scale))
+    set_label_color(weather_condition_label, scale_color(0x998866, active_color_scale))
+    set_label_color(weather_current_label, scale_color(0x997755, active_color_scale))
+    set_label_color(weather_tomorrow_label, scale_color(0x557766, active_color_scale))
+
+    last_main_display_state = None
+    return True
 
 def format_time_text(hour_24, minute):
     """Render a fixed-width 12-hour time string to avoid label reallocations."""
@@ -966,6 +1105,7 @@ last_time_display_start  = time.monotonic()
 last_sensor_read         = 0
 last_main_displayed_time = None
 last_brightness          = None
+last_color_scale         = None
 
 weather_overlay_state      = "inactive"
 weather_overlay_start_time = 0
@@ -1005,10 +1145,13 @@ else:
 # Init complete -- hand off to main display
 set_startup_status("Ready!")
 time.sleep(0.3)
+initial_color_scale = get_target_color_scale(time.localtime().tm_hour) if ENABLE_AUTO_BRIGHTNESS else COLOR_SCALE
+apply_color_theme(initial_color_scale, force=True)
 update_main_display(time.localtime())
-initial_brightness = get_target_brightness(time.localtime().tm_hour) if ENABLE_AUTO_BRIGHTNESS else FIXED_BRIGHTNESS
+initial_brightness = FIXED_BRIGHTNESS
 DISPLAY.brightness = initial_brightness
 active_brightness = initial_brightness
+last_color_scale = initial_color_scale
 DISPLAY.root_group = main_group
 
 # Reset timers AFTER init so the main loop doesn't immediately re-trigger
@@ -1053,14 +1196,15 @@ while True:
         update_main_display(now)
         last_main_displayed_time = now
 
-    if ENABLE_AUTO_BRIGHTNESS:
-        target_brightness = get_target_brightness(now.tm_hour)
-        if last_brightness != target_brightness:
-            set_display_brightness(target_brightness)
-            last_brightness = target_brightness
-    else:
-        if last_brightness != FIXED_BRIGHTNESS:
-            set_display_brightness(FIXED_BRIGHTNESS)
-            last_brightness = FIXED_BRIGHTNESS
+    target_color_scale = get_target_color_scale(now.tm_hour) if ENABLE_AUTO_BRIGHTNESS else COLOR_SCALE
+    if last_color_scale is None or abs(last_color_scale - target_color_scale) > 0.01:
+        apply_color_theme(target_color_scale)
+        update_main_display(now)
+        last_main_displayed_time = now
+        last_color_scale = target_color_scale
+
+    if last_brightness != FIXED_BRIGHTNESS:
+        set_display_brightness(FIXED_BRIGHTNESS)
+        last_brightness = FIXED_BRIGHTNESS
 
     time.sleep(1)
