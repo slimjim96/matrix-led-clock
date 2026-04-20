@@ -26,6 +26,7 @@ ENABLE_STARTUP_SCREEN  = False   # Show boot status screen before handing off to
 DHT_INIT_PER_READ      = True   # Create/release DHT object per read to reduce panel timing conflicts
 FAST_POLLING_MODE      = False  # Use short test intervals instead of production-safe polling
 INDOOR_SENSOR_MODE     = "off"  # "off", "boot_only", or "periodic"
+FIXED_BRIGHTNESS       = 0.05   # Used when auto-brightness is disabled (0.0 to 1.0)
 
 # Render strategy flags: keep these lightweight by default on HUB75 panels.
 USE_SINGLE_WEATHER_STATUS_ICON = True   # Keep only one top-right weather icon mounted
@@ -91,7 +92,7 @@ print(f"Location: {latitude}, {longitude}")
 print(f"Timezone: {timezone_name}")
 
 # -- DISPLAY INIT ------------------------------------------------------------
-MATRIX  = Matrix(bit_depth=2)
+MATRIX  = Matrix(bit_depth=6)
 DISPLAY = MATRIX.display
 
 # Startup screen shown during boot so the matrix can be used for troubleshooting
@@ -108,9 +109,9 @@ _startup_group.append(_s_status)
 _startup_group.append(_s_detail)
 if ENABLE_STARTUP_SCREEN:
     DISPLAY.root_group = _startup_group
-    DISPLAY.brightness = 0.4
+    DISPLAY.brightness = 0.05 #OLd 0.4
 else:
-    DISPLAY.brightness = 1.0
+    DISPLAY.brightness = FIXED_BRIGHTNESS
 
 _STARTUP_W = 10
 
@@ -995,7 +996,7 @@ else:
 set_startup_status("Ready!")
 time.sleep(0.3)
 update_main_display(time.localtime())
-initial_brightness = get_target_brightness(time.localtime().tm_hour) if ENABLE_AUTO_BRIGHTNESS else DISPLAY.brightness
+initial_brightness = get_target_brightness(time.localtime().tm_hour) if ENABLE_AUTO_BRIGHTNESS else FIXED_BRIGHTNESS
 DISPLAY.brightness = initial_brightness
 active_brightness = initial_brightness
 DISPLAY.root_group = main_group
@@ -1047,5 +1048,9 @@ while True:
         if last_brightness != target_brightness:
             set_display_brightness(target_brightness)
             last_brightness = target_brightness
+    else:
+        if last_brightness != FIXED_BRIGHTNESS:
+            set_display_brightness(FIXED_BRIGHTNESS)
+            last_brightness = FIXED_BRIGHTNESS
 
     time.sleep(1)

@@ -15,12 +15,16 @@ Recommended stable settings:
 - `INDOOR_SENSOR_MODE = "off"`
 - `ENABLE_WEATHER_OVERLAY = False`
 - `ENABLE_AUTO_BRIGHTNESS = False`
+- `FIXED_BRIGHTNESS = 0.30`
 - `ENABLE_STARTUP_SCREEN = False`
 - `USE_SINGLE_WEATHER_STATUS_ICON = True`
 - `USE_SINGLE_OUTDOOR_ICON = True`
 
 These settings are the best-known non-flickery baseline for this Matrix Portal +
 HUB75 display.
+
+If the matrix is too bright, lower `FIXED_BRIGHTNESS` in `code.py`.
+Typical useful values are between `0.20` and `0.40`.
 
 ## Important Hardware Note
 
